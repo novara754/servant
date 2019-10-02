@@ -6,9 +6,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <setjmp.h>
+
+#include "str.h"
 
 #define LISTEN_BACKLOG 50
+#define REQUEST_BUFFER_LEN 1024
 
+char request_buffer[REQUEST_BUFFER_LEN];
 char response[] =
 	"HTTP/1.1 200 OK\n"
 	"Content-Type: text/html\n"
@@ -21,6 +26,7 @@ char response[] =
 		"<h1>Servant Home</h1>"
 	"</body>"
 	"</html>";
+jmp_buf handle_client_error;
 
 int create_server(uint16_t port);
 void accept_client(int server_socket);
@@ -72,6 +78,38 @@ int create_server(uint16_t port) {
 	return server;
 }
 
+void http_error(int code, const char *msg) {
+	fprintf(stderr, "%d - %s\n", code, msg);
+	longjmp(handle_client_error, 1);
+}
+
+void handle_client(int client_socket) {
+	ssize_t num_read = read(client_socket, request_buffer, REQUEST_BUFFER_LEN);
+	if (num_read == 0) {
+		http_error(400, "EOF");
+	}
+	if (num_read < 0) {
+		http_error(500, strerror(errno));
+	}
+
+	String buffer = {
+		.len = (size_t)num_read,
+		.buffer = request_buffer,
+	};
+	String line = trim_end(line_tok(&buffer));
+	if (!line.len) {
+		http_error(400, "empty status line");
+	}
+
+	String method = word_tok(&line);
+	String path = word_tok(&line);
+	printf("method=%.*s\npath=%.*s\n", (int)method.len, method.buffer, (int)path.len, path.buffer);
+
+	if (write(client_socket, response, sizeof(response)) == -1) {
+		printf("failed to send data\n");
+	}
+}
+
 void accept_client(int server_socket) {
 	struct sockaddr_in client_addr;
 	socklen_t client_addr_len;
@@ -81,8 +119,11 @@ void accept_client(int server_socket) {
 		return;
 	}
 	printf("new connection: %s\n", inet_ntoa(client_addr.sin_addr));
-	if (write(client, response, sizeof(response)) == -1) {
-		printf("failed to send data\n");
+	if (setjmp(handle_client_error) == 0) {
+		handle_client(client);
+	} else {
+		// TODO: handle error
 	}
+	printf("--------------------\n");
 	close(client);
 }
