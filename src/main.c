@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <setjmp.h>
 #include <limits.h>
+#include <sys/stat.h>
 
 #include "str.h"
 
@@ -122,7 +123,14 @@ void handle_client(int client_socket) {
 	getcwd(filepath, PATH_MAX);
 	strcat(filepath, "/public");
 	strncat(filepath, path.buffer, MIN(PATH_MAX, path.len));
+	printf("%s - %d", filepath, access(filepath, R_OK) != 0);
 	if (access(filepath, R_OK) != 0) {
+		http_error(404, "unknown resource");
+	}
+
+	struct stat file_stat;
+	stat(filepath, &file_stat);
+	if ((file_stat.st_mode & S_IFREG) != S_IFREG) {
 		http_error(404, "unknown resource");
 	}
 
