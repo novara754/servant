@@ -1,5 +1,13 @@
 #include <ctype.h>
+#include <string.h>
 #include "str.h"
+
+String string_nul(const char *s) {
+	return (String){
+		.len = strlen(s),
+		.buffer = s,
+	};
+}
 
 String trim_begin(String s) {
 	while (s.len && isspace(*s.buffer)) {
@@ -49,4 +57,9 @@ String line_tok(String *input) {
 	}
 
 	return line;
+}
+
+bool string_equal(String s1, String s2) {
+	if (s1.len != s2.len) return false;
+	return memcmp((char*)s1.buffer, (char*)s2.buffer, s1.len) == 0;
 }

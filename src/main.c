@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -80,7 +81,25 @@ int create_server(uint16_t port) {
 
 void http_error(int code, const char *msg) {
 	fprintf(stderr, "%d - %s\n", code, msg);
-	longjmp(handle_client_error, 1);
+	longjmp(handle_client_error, code);
+}
+
+void write_response(int fd, int code) {
+	dprintf(
+		fd,
+		"HTTP/1.1 %d\n"
+		"Content-Type: text/html\n"
+		"\n"
+		"<html>"
+		"<head>"
+			"<title>Error %d</title>"
+		"</head>"
+		"<body>"
+			"<h1>Error %d</h1>"
+		"</body>"
+		"</html>",
+		code, code, code
+	);
 }
 
 void handle_client(int client_socket) {
@@ -102,8 +121,14 @@ void handle_client(int client_socket) {
 	}
 
 	String method = word_tok(&line);
+	if (!string_equal(method, string_nul("GET"))) {
+		http_error(405, "unknown method");
+	}
+
 	String path = word_tok(&line);
-	printf("method=%.*s\npath=%.*s\n", (int)method.len, method.buffer, (int)path.len, path.buffer);
+	if (!string_equal(path, string_nul("/"))) {
+		http_error(404, "not found");
+	}
 
 	if (write(client_socket, response, sizeof(response)) == -1) {
 		printf("failed to send data\n");
@@ -119,10 +144,11 @@ void accept_client(int server_socket) {
 		return;
 	}
 	printf("new connection: %s\n", inet_ntoa(client_addr.sin_addr));
-	if (setjmp(handle_client_error) == 0) {
+	int code = setjmp(handle_client_error);
+	if (code == 0) {
 		handle_client(client);
 	} else {
-		// TODO: handle error
+		write_response(client, code);
 	}
 	printf("--------------------\n");
 	close(client);
