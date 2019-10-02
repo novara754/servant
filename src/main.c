@@ -1,15 +1,16 @@
 #define _GNU_SOURCE
+#include <errno.h>
+#include <limits.h>
+#include <unistd.h>
+#include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <setjmp.h>
-#include <limits.h>
+#include <netinet/in.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 
 #include "str.h"
 

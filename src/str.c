@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <string.h>
+
 #include "str.h"
 
 String string_nul(const char *s) {
