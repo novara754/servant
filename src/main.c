@@ -7,8 +7,6 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define PORT 8080
-#define ADDRESS "127.0.0.1"
 #define LISTEN_BACKLOG 50
 
 char response[] =
@@ -24,18 +22,32 @@ char response[] =
 	"</body>"
 	"</html>";
 
-int create_server(void);
+int create_server(uint16_t port);
 void accept_client(int server_socket);
 
-int main() {
-	int server = create_server();
+int main(int argc, char **argv) {
+	if (argc != 2) {
+		fprintf(stderr, "usage: %s <port>\n", argv[0]);
+		return 1;
+	}
+
+	char *end_of_port;
+	uint16_t port = (uint16_t)strtoul(argv[1], &end_of_port, 10);
+	if (end_of_port == argv[1]) {
+		fprintf(stderr, "invalid port\n");
+		return 1;
+	}
+
+	int server = create_server(port);
+	printf("now accepting connections on port %d...\n", port);
 	while (1) {
 		accept_client(server);
 	}
+
 	return 0;
 }
 
-int create_server(void) {
+int create_server(uint16_t port) {
 	int server = socket(AF_INET, SOCK_STREAM, 0);
 	if (server < 0) {
 		perror("failed to create socket");
@@ -45,7 +57,7 @@ int create_server(void) {
 	struct sockaddr_in addr;
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(PORT);
+	addr.sin_port = htons(port);
 
 	if (bind(server, (struct sockaddr*) &addr, sizeof(addr)) != 0) {
 		perror("failed to bind socket");

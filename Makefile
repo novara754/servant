@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Werror -Wpedantic -Wextra
+CFLAGS=-Wall -Werror -Wpedantic -Wextra -Wconversion -Wunused-macros
 HEADERS=$(wildcard src/*.h)
 OBJECTS=$(patsubst %.c, %.o, $(wildcard src/*.c))
 
