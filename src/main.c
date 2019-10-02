@@ -8,25 +8,17 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <setjmp.h>
+#include <limits.h>
 
 #include "str.h"
 
 #define LISTEN_BACKLOG 50
 #define REQUEST_BUFFER_LEN 1024
+#define RESPONSE_BUFFER_LEN 1024
+
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 char request_buffer[REQUEST_BUFFER_LEN];
-char response[] =
-	"HTTP/1.1 200 OK\n"
-	"Content-Type: text/html\n"
-	"\n"
-	"<html>"
-	"<head>"
-		"<title>Servant Home</title>"
-	"</head>"
-	"<body>"
-		"<h1>Servant Home</h1>"
-	"</body>"
-	"</html>";
 jmp_buf handle_client_error;
 
 int create_server(uint16_t port);
@@ -126,10 +118,23 @@ void handle_client(int client_socket) {
 	}
 
 	String path = word_tok(&line);
-	if (!string_equal(path, string_nul("/"))) {
-		http_error(404, "not found");
+	char filepath[PATH_MAX];
+	getcwd(filepath, PATH_MAX);
+	strcat(filepath, "/public");
+	strncat(filepath, path.buffer, MIN(PATH_MAX, path.len));
+	if (access(filepath, R_OK) != 0) {
+		http_error(404, "unknown resource");
 	}
 
+	char response[RESPONSE_BUFFER_LEN] =
+		"HTTP/1.1 %d\n"
+		"Content-Type: text/html\n"
+		"\n";
+	char file_content[RESPONSE_BUFFER_LEN];
+	FILE *file = fopen(filepath, "r");
+	fread(file_content, 1, RESPONSE_BUFFER_LEN, file);
+	fclose(file);
+	strncat(response, file_content, RESPONSE_BUFFER_LEN);
 	if (write(client_socket, response, sizeof(response)) == -1) {
 		printf("failed to send data\n");
 	}
