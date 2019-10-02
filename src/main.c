@@ -143,13 +143,24 @@ void accept_client(int server_socket) {
 		perror("failed to accept incoming connection");
 		return;
 	}
-	printf("new connection: %s\n", inet_ntoa(client_addr.sin_addr));
-	int code = setjmp(handle_client_error);
-	if (code == 0) {
-		handle_client(client);
-	} else {
-		write_response(client, code);
+
+
+	pid_t pid = fork();
+	if (pid == -1) {
+		perror("failed to fork");
+		return;
 	}
-	printf("--------------------\n");
+
+	if (pid == 0) {
+		printf("new connection: %s\n", inet_ntoa(client_addr.sin_addr));
+		int code = setjmp(handle_client_error);
+		if (code == 0) {
+			handle_client(client);
+		} else {
+			write_response(client, code);
+		}
+		printf("--------------------\n");
+	}
+
 	close(client);
 }
