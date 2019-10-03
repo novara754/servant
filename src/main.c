@@ -12,13 +12,9 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 
-#include "str.h"
-
 #define LISTEN_BACKLOG 50
 #define REQUEST_BUFFER_LEN 1024
 #define RESPONSE_BUFFER_LEN 1024
-
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 char request_buffer[REQUEST_BUFFER_LEN];
 jmp_buf handle_client_error;
@@ -105,26 +101,21 @@ void handle_client(int client_socket) {
 		http_error(500, strerror(errno));
 	}
 
-	String buffer = {
-		.len = (size_t)num_read,
-		.buffer = request_buffer,
-	};
-	String line = trim_end(line_tok(&buffer));
-	if (!line.len) {
+	char *line = strtok(request_buffer, "\n");
+	if (!line) {
 		http_error(400, "empty status line");
 	}
 
-	String method = word_tok(&line);
-	if (!string_equal(method, string_nul("GET"))) {
+	char *method = strtok(line, " ");
+	if (strcmp(method, "GET") != 0) {
 		http_error(405, "unknown method");
 	}
 
-	String path = word_tok(&line);
+	char *path = strtok(NULL, " ");
 	char filepath[PATH_MAX];
 	getcwd(filepath, PATH_MAX);
 	strcat(filepath, "/public");
-	strncat(filepath, path.buffer, MIN(PATH_MAX, path.len));
-	printf("%s - %d", filepath, access(filepath, R_OK) != 0);
+	strncat(filepath, path, PATH_MAX);
 	if (access(filepath, R_OK) != 0) {
 		http_error(404, "unknown resource");
 	}
